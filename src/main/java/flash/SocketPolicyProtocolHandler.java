@@ -3,20 +3,20 @@
  */
 package flash;
 
-import org.apache.coyote.ProtocolHandler;
 import org.apache.coyote.Adapter;
+import org.apache.coyote.ProtocolHandler;
 
-import java.util.logging.Logger;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.concurrent.*;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.io.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.logging.Logger;
 
 /**
- *  ProtocolHandler that serves a Flash Socket policy file. This is needed for Flash/Flex applications,
+ * ProtocolHandler that serves a Flash Socket policy file. This is needed for Flash/Flex applications,
  * that want to use Sockets to talk to the server.
  * You can configure the port (default is 843) and the path of the policy file (default allows access from domain "localhost"
  * to port 80 for http over sockets)
@@ -228,7 +228,5 @@ class WorkerRunnable implements Runnable {
                 LOG.severe("Error closing in and out: " + e.getMessage());
             }
         }
-
-
     }
 }
