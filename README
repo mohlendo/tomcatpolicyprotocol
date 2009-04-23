@@ -1,0 +1,31 @@
+tomcatpolicyprotocol is a jakarta tomcat protocol handler that serves Flash socket policy files, when you want to establish a socket connection with Flash to your tomcat server.
+
+When you use the http/https library for AS3 (http://github.com/gabriel/as3httpclient/tree/master) that uses sockets to use real REST services this little tomcat extension helps you to fullfill the security requirements of the new Flash players (http://www.adobe.com/devnet/flashplayer/articles/socket_policy_files.html)
+
+
+
+Configruation:
+You need the latest version of Tomcat (right now version 6)
+Just copy the flashsocketpolicy-1.0-SNAPSHOT.jar, created by the maven build, to the tomcat lib folder.
+Add the following connector to the list of connectors in the server.xml:
+
+<Connector protocol="flash.SocketPolicyProtocolHandler"/>
+
+This connector now serves a default socket policy file on port 843.
+
+Default policy file:
+
+<?xml version="1.0"?>
+<!DOCTYPE cross-domain-policy SYSTEM "/xml/dtds/cross-domain-policy.dtd">
+<cross-domain-policy>
+   <site-control permitted-cross-domain-policies="master-only"/>
+   <allow-access-from domain="localhost" to-ports="80" />
+</cross-domain-policy>  
+
+If you want a different port you can change it like this:
+
+<Connector port="8111" protocol="flash.SocketPolicyProtocolHandler"/>
+
+You can also change the default policy file by specifying the absolute path to it:
+
+<Connector port="8111" policyFile="/policy.xml" protocol="flash.SocketPolicyProtocolHandler"/>
