@@ -1,19 +1,26 @@
-/*
+/**
  * Copyright (c) 2009, CoreMedia AG, Hamburg. All rights reserved.
  */
 package flash;
 
-import org.apache.coyote.Adapter;
-import org.apache.coyote.ProtocolHandler;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import org.apache.coyote.Adapter;
+import org.apache.coyote.ProtocolHandler;
 
 /**
  * ProtocolHandler that serves a Flash Socket policy file. This is needed for Flash/Flex applications,
@@ -33,21 +40,16 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     private Adapter adapter;
 
-    private String policy = "<?xml version=\"1.0\"?>\n" +
-            "<!DOCTYPE cross-domain-policy SYSTEM \"/xml/dtds/cross-domain-policy.dtd\">\n" +
-            "<cross-domain-policy>\n" +
-            "   <site-control permitted-cross-domain-policies=\"master-only\"/>\n" +
-            "   <allow-access-from domain=\"localhost\" to-ports=\"80\" />\n" +
-            "</cross-domain-policy>\0";
-    private Map<String, Object> attributes = new HashMap<String, Object>();
+    private String policy = "<cross-domain-policy><site-control permitted-cross-domain-policies=\"master-only\"/><allow-access-from domain=\"*\" to-ports=\"*\" /></cross-domain-policy>\0";
 
     private BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
-    private ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 100, 60, TimeUnit.SECONDS, queue);
+    private ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 10, 60, TimeUnit.SECONDS, queue);
     private ServerSocket serverSocket = null;
     private boolean isShutDownRequested = false;
 
     private void startSocket() {
-        new Thread(new Runnable() {
+    	
+        Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
                     serverSocket = new ServerSocket(port);
@@ -77,7 +79,8 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
                     }
                 }
             }
-        }, "SocketLoop").start();
+        }, "SocketLoop");
+        thread.start();
     }
 
     private synchronized boolean shutDownRequested() {
@@ -86,10 +89,12 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     private synchronized void requestShutDown() {
         this.isShutDownRequested = true;
-        try {
-            this.serverSocket.close();
-        } catch (IOException e) {
-            LOG.severe("Error closing server" + e.getMessage());
+        if( this.serverSocket != null ) {
+	        try {
+	            this.serverSocket.close();
+	        } catch (IOException e) {
+	            LOG.severe("Error closing server" + e.getMessage());
+	        }
         }
     }
 
@@ -110,21 +115,6 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     }
 
     @Override
-    public void setAttribute(String s, Object o) {
-        attributes.put(s, o);
-    }
-
-    @Override
-    public Object getAttribute(String s) {
-        return attributes.get(s);
-    }
-
-    @Override
-    public Iterator getAttributeNames() {
-        return attributes.keySet().iterator();
-    }
-
-    @Override
     public void setAdapter(Adapter adapter) {
         this.adapter = adapter;
     }
@@ -137,7 +127,6 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     @Override
     public void init() throws Exception {
         LOG.info(adapter.getClass().getName());
-        LOG.info(attributes.toString());
         LOG.info("Initializing Flash Socket Policy protocoll handler on port: " + port);
         if (policyFilePath != null) {
             LOG.info("Using policy file: " + policyFilePath);
@@ -175,6 +164,40 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         requestShutDown();
         executor.shutdown();
     }
+
+	@Override
+	public Executor getExecutor() {
+		return this.executor;
+	}
+
+	@Override
+	public boolean isAprRequired() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isCometSupported() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isCometTimeoutSupported() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isSendfileSupported() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void stop() throws Exception {
+		this.isShutDownRequested = true;
+	}
 
 }
 
