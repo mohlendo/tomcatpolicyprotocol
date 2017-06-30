@@ -41,9 +41,12 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     private Adapter adapter;
 
     private BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
-    private ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 10, 60, TimeUnit.SECONDS, queue);
+    private ThreadPoolExecutor executor = null;
     private ServerSocket serverSocket = null;
     private boolean isShutDownRequested = false;
+    
+    private int maxThreadPoolSize = 10;
+    private int keepAliveTime = 60;
 
     private void startSocket() {
     	
@@ -112,7 +115,23 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         return this.port;
     }
 
-    @Override
+    public int getMaxThreadPoolSize() {
+		return maxThreadPoolSize;
+	}
+
+	public void setMaxThreadPoolSize(int maxThreadPoolSize) {
+		this.maxThreadPoolSize = maxThreadPoolSize;
+	}
+
+	public int getKeepAliveTime() {
+		return keepAliveTime;
+	}
+
+	public void setKeepAliveTime(int keepAliveTime) {
+		this.keepAliveTime = keepAliveTime;
+	}
+
+	@Override
     public void setAdapter(Adapter adapter) {
         this.adapter = adapter;
     }
@@ -126,16 +145,16 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     public void init() {
     	
     	logger.info( "Initializing Flash Socket Policy protocol handler on port: " + port );
-        if (policyFilePath != null) {
+        if ( policyFilePath != null ) {
         	
-        	logger.info("Using policy file: " + policyFilePath);
+        	logger.info( "Using policy file: " + policyFilePath );
             File file = new File( policyFilePath );
             try{
 	            BufferedReader reader = new BufferedReader( new FileReader( file ) );
 	            String line;
 	            StringBuffer buffy = new StringBuffer();
-	            while ((line = reader.readLine()) != null) {
-	                buffy.append(line);
+	            while ( ( line = reader.readLine() ) != null ) {
+	                buffy.append( line );
 	            }
 	            buffy.append("\0");
 	            POLICY_RESPONCE = buffy.toString();
@@ -146,6 +165,8 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         } else {
         	logger.info( "Using default policy file: " + POLICY_RESPONCE );
         }
+        
+        this.executor = new ThreadPoolExecutor( 1, this.maxThreadPoolSize, this.keepAliveTime, TimeUnit.SECONDS, queue );
     }
 
     @Override
@@ -233,7 +254,7 @@ class WorkerRunnable implements Runnable {
 
                 } else {
                     out.write(buf, 0, count);
-                    logger.info("Ignoring Request");
+                    logger.info( "Ignoring Request. Receied wrong request text " + new String( buf ) );
                 }
             }
         } catch (IOException e) {
@@ -247,10 +268,10 @@ class WorkerRunnable implements Runnable {
                 }
                 if (in != null) {
                     in.close();
-                    logger.info("Flush output and close input stream.");
+                    logger.info("Close input stream.");
                 }
             } catch (IOException e) {
-            	logger.severe("Error closing in and out: " + e.getMessage());
+            	logger.severe("Error closing input stream and outputstream.\n" + e.getMessage());
             }
         }
     }
