@@ -13,7 +13,7 @@ This connector now serves a default socket policy file on port 843.
 If you want a different port you can change it like this:
   <Connector port="8111" protocol="com.cinergix.flash.SocketPolicyProtocolHandler"/>
 
-Default policy file:
+Default policy file is:
 
   <cross-domain-policy>
   	<site-control permitted-cross-domain-policies="master-only"/>
@@ -21,7 +21,7 @@ Default policy file:
   </cross-domain-policy>
   
  You can also change the default policy file by specifying the absolute path to it:
-  <Connector port="8111" policyFile="/policy.xml" protocol="flash.SocketPolicyProtocolHandler"/>
+  <Connector port="8111" policyFile="/policy.xml" protocol="com.cinergix.flash.SocketPolicyProtocolHandler"/>
 
 By default it uses one acceptor threads and 5 worker threads.
 If you want to change the maximum number of worker thread then you can do it as follows

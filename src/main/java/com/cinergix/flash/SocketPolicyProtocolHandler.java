@@ -1,4 +1,4 @@
-package flash;
+package com.cinergix.flash;
 
 import java.io.BufferedReader;
 import java.io.File;
