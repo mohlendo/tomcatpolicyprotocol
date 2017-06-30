@@ -45,7 +45,7 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     private ServerSocket serverSocket = null;
     private boolean isShutDownRequested = false;
     
-    private int maxThreadPoolSize = 10;
+    private int maxThreadPoolSize = 5;
     private int keepAliveTime = 60;
 
     private void startSocket() {
@@ -119,16 +119,24 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 		return maxThreadPoolSize;
 	}
 
-	public void setMaxThreadPoolSize(int maxThreadPoolSize) {
-		this.maxThreadPoolSize = maxThreadPoolSize;
+	public void setMaxThreadPoolSize(String maxThreadPoolSize) {
+		try {
+		this.maxThreadPoolSize = Integer.parseInt( maxThreadPoolSize );
+		} catch( Exception e ) {
+			logger.warning( "Max threadpool size for policy server is not an integer. Default value 5 is set." );
+		}
 	}
 
 	public int getKeepAliveTime() {
 		return keepAliveTime;
 	}
 
-	public void setKeepAliveTime(int keepAliveTime) {
-		this.keepAliveTime = keepAliveTime;
+	public void setKeepAliveTime(String keepAliveTime) {
+		try {
+			this.keepAliveTime = Integer.parseInt( keepAliveTime );
+		} catch( Exception e ) {
+			logger.warning( "Keepalive time for policy server connector is not an integer. Default value 60 is set." );
+		}
 	}
 
 	@Override
