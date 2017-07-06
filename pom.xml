@@ -2,11 +2,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>flash</groupId>
-    <artifactId>flashsocketpolicy</artifactId>
+    <artifactId>socket-policy-server</artifactId>
     <packaging>jar</packaging>
-    <version>1.0-SNAPSHOT</version>
-    <name>flashsocketpolicy</name>
-    <url>http://github.com/mohlendo/tomcatpolicyprotocol</url>
+    <version>1.1</version>
+    <name>socket-policy-server</name>
 
     <repositories>
         <repository>
@@ -33,15 +32,8 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.tomcat</groupId>
-            <artifactId>coyote</artifactId>
-            <version>6.0.18</version>
-        </dependency>
-
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>3.8.1</version>
-            <scope>test</scope>
+            <artifactId>tomcat-coyote</artifactId>
+            <version>8.0.32</version>
         </dependency>
     </dependencies>
 </project>
