@@ -1,58 +1,61 @@
-/*
- * Copyright (c) 2009, CoreMedia AG, Hamburg. All rights reserved.
- */
 package flash;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import org.apache.coyote.Adapter;
 import org.apache.coyote.ProtocolHandler;
 
-import java.io.*;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.logging.Logger;
-
 /**
- * ProtocolHandler that serves a Flash Socket policy file. This is needed for Flash/Flex applications,
- * that want to use Sockets to talk to the server.
- * You can configure the port (default is 843) and the path of the policy file (default allows access from domain "localhost"
- * to port 80 for http over sockets)
+ * ProtocolHandler that serves a Flash Socket policy file. This is needed for 
+ * Flash/Flex applications, that want to use Sockets to talk to the server.
+ * You can configure the port (default is 843) and the path of the policy file 
+ * ( default allows access from all domain to any port for http over sockets )
  */
 public class SocketPolicyProtocolHandler implements ProtocolHandler {
-    private final Logger LOG = Logger.getLogger(SocketPolicyProtocolHandler.class.getName());
+    private final Logger logger = Logger.getLogger(SocketPolicyProtocolHandler.class.getName());
+    
+    /**
+     * Port number to accept the connections. By default it uses port number 843.
+     */
+    private int port = 843;
 
-    private static final int DEFAULT_PORT = 843;
-    private int port = DEFAULT_PORT;
-
-    protected static final String expectedRequest = "<policy-file-request/>\0";
+    protected static final String EXPECTED_REQUEST = "<policy-file-request/>\0";
+    protected static String POLICY_RESPONCE = "<cross-domain-policy><site-control permitted-cross-domain-policies=\"master-only\"/><allow-access-from domain=\"*\" to-ports=\"*\" /></cross-domain-policy>\0";
 
     private String policyFilePath;
 
     private Adapter adapter;
 
-    private String policy = "<?xml version=\"1.0\"?>\n" +
-            "<!DOCTYPE cross-domain-policy SYSTEM \"/xml/dtds/cross-domain-policy.dtd\">\n" +
-            "<cross-domain-policy>\n" +
-            "   <site-control permitted-cross-domain-policies=\"master-only\"/>\n" +
-            "   <allow-access-from domain=\"localhost\" to-ports=\"80\" />\n" +
-            "</cross-domain-policy>\0";
-    private Map<String, Object> attributes = new HashMap<String, Object>();
-
     private BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>();
-    private ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 100, 60, TimeUnit.SECONDS, queue);
+    private ThreadPoolExecutor executor = null;
     private ServerSocket serverSocket = null;
     private boolean isShutDownRequested = false;
+    
+    private int maxThreadPoolSize = 5;
+    private int keepAliveTime = 60;
 
     private void startSocket() {
-        new Thread(new Runnable() {
+    	
+        Thread thread = new Thread( new Runnable() {
             public void run() {
                 try {
                     serverSocket = new ServerSocket(port);
                 } catch (IOException e) {
-                    LOG.severe("Could not listen on port: " + port);
+                    logger.severe("Could not listen on port: " + port);
                     System.exit(1);
                 }
 
@@ -61,23 +64,24 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
                     try {
                         clientSocket = serverSocket.accept();
                     } catch (IOException e) {
-                        LOG.severe("Socket accept failed: " + e.getMessage());
+                        logger.severe("Socket accept failed: " + e.getMessage());
                         continue;
                     }
                     try {
-                        executor.execute(new WorkerRunnable(clientSocket, policy));
+                        executor.execute( new WorkerRunnable( clientSocket ) );
                     }
                     catch (RejectedExecutionException e) {
-                        LOG.severe("Executor rejected execution: " + e.getMessage());
+                        logger.severe("Executor rejected execution: " + e.getMessage());
                         try {
                             clientSocket.close();
                         } catch (IOException e1) {
-                            LOG.severe("Error closing client: " + e1.getMessage());
+                        	logger.severe("Error closing client: " + e1.getMessage());
                         }
                     }
                 }
             }
-        }, "SocketLoop").start();
+        }, "SocketLoop" );
+        thread.start();
     }
 
     private synchronized boolean shutDownRequested() {
@@ -86,10 +90,12 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     private synchronized void requestShutDown() {
         this.isShutDownRequested = true;
-        try {
-            this.serverSocket.close();
-        } catch (IOException e) {
-            LOG.severe("Error closing server" + e.getMessage());
+        if( this.serverSocket != null ) {
+	        try {
+	            this.serverSocket.close();
+	        } catch (IOException e) {
+	        	logger.severe("Error closing server" + e.getMessage());
+	        }
         }
     }
 
@@ -109,22 +115,31 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         return this.port;
     }
 
-    @Override
-    public void setAttribute(String s, Object o) {
-        attributes.put(s, o);
-    }
+    public int getMaxThreadPoolSize() {
+		return maxThreadPoolSize;
+	}
 
-    @Override
-    public Object getAttribute(String s) {
-        return attributes.get(s);
-    }
+	public void setMaxThreadPoolSize(String maxThreadPoolSize) {
+		try {
+		this.maxThreadPoolSize = Integer.parseInt( maxThreadPoolSize );
+		} catch( Exception e ) {
+			logger.warning( "Max threadpool size for policy server is not an integer. Default value 5 is set." );
+		}
+	}
 
-    @Override
-    public Iterator getAttributeNames() {
-        return attributes.keySet().iterator();
-    }
+	public int getKeepAliveTime() {
+		return keepAliveTime;
+	}
 
-    @Override
+	public void setKeepAliveTime(String keepAliveTime) {
+		try {
+			this.keepAliveTime = Integer.parseInt( keepAliveTime );
+		} catch( Exception e ) {
+			logger.warning( "Keepalive time for policy server connector is not an integer. Default value 60 is set." );
+		}
+	}
+
+	@Override
     public void setAdapter(Adapter adapter) {
         this.adapter = adapter;
     }
@@ -135,24 +150,31 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
     }
 
     @Override
-    public void init() throws Exception {
-        LOG.info(adapter.getClass().getName());
-        LOG.info(attributes.toString());
-        LOG.info("Initializing Flash Socket Policy protocoll handler on port: " + port);
-        if (policyFilePath != null) {
-            LOG.info("Using policy file: " + policyFilePath);
-            File file = new File(policyFilePath);
-            BufferedReader reader = new BufferedReader(new FileReader(file));
-            String line;
-            StringBuffer buffy = new StringBuffer();
-            while ((line = reader.readLine()) != null) {
-                buffy.append(line);
+    public void init() {
+    	
+    	logger.info( "Initializing Flash Socket Policy protocol handler on port: " + port );
+        if ( policyFilePath != null ) {
+        	
+        	logger.info( "Using policy file: " + policyFilePath );
+            File file = new File( policyFilePath );
+            try{
+	            BufferedReader reader = new BufferedReader( new FileReader( file ) );
+	            String line;
+	            StringBuffer buffy = new StringBuffer();
+	            while ( ( line = reader.readLine() ) != null ) {
+	                buffy.append( line );
+	            }
+	            buffy.append("\0");
+	            POLICY_RESPONCE = buffy.toString();
+	            reader.close();
+            } catch( IOException e ) {
+            	logger.severe( "Unable to read policyfile from \"" + policyFilePath + "\".\n" + e.getStackTrace() );
             }
-            buffy.append("\0");
-            policy = buffy.toString();
         } else {
-            LOG.info("Using default policy file: " + policy);
+        	logger.info( "Using default policy file: " + POLICY_RESPONCE );
         }
+        
+        this.executor = new ThreadPoolExecutor( 1, this.maxThreadPoolSize, this.keepAliveTime, TimeUnit.SECONDS, queue );
     }
 
     @Override
@@ -162,30 +184,56 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     @Override
     public void pause() throws Exception {
-
     }
 
     @Override
     public void resume() throws Exception {
-
     }
 
     @Override
     public void destroy() throws Exception {
-        requestShutDown();
-        executor.shutdown();
+    	this.requestShutDown();
+        this.executor.shutdown();
     }
+
+	@Override
+	public Executor getExecutor() {
+		return this.executor;
+	}
+
+	@Override
+	public boolean isAprRequired() {
+		return false;
+	}
+
+	@Override
+	public boolean isCometSupported() {
+		return false;
+	}
+
+	@Override
+	public boolean isCometTimeoutSupported() {
+		return false;
+	}
+
+	@Override
+	public boolean isSendfileSupported() {
+		return false;
+	}
+
+	@Override
+	public void stop() throws Exception {
+		this.requestShutDown();
+	}
 
 }
 
 class WorkerRunnable implements Runnable {
     Socket clientSocket;
-    String policy;
-    Logger LOG = Logger.getLogger(WorkerRunnable.class.getName());
+    Logger logger = Logger.getLogger(WorkerRunnable.class.getName());
 
-    public WorkerRunnable(Socket clientSocket, String policy) {
+    public WorkerRunnable( Socket clientSocket ) {
         this.clientSocket = clientSocket;
-        this.policy = policy;
     }
 
     @Override
@@ -197,35 +245,37 @@ class WorkerRunnable implements Runnable {
             in = clientSocket.getInputStream();
             byte[] buf = new byte[1024];
             int count;
-            while (((count = in.read(buf)) > 0)) {
-                if (count == 23 && new String(buf).startsWith(SocketPolicyProtocolHandler.expectedRequest)) {
+            
+            while ( ( count = in.read( buf ) ) > 0 ) {
+            	
+                if (count == 23 && new String(buf).startsWith( SocketPolicyProtocolHandler.EXPECTED_REQUEST ) ) {
                     try {
-                        out.write(policy.getBytes());
-                        LOG.info("Sent policy");
+                        out.write( SocketPolicyProtocolHandler.POLICY_RESPONCE.getBytes() );
+                        logger.info( "Sent policy" );
                     } catch (IOException ex) {
-                        LOG.severe("Error sending policy file");
+                    	logger.severe( "Error sending policy file.\n" + ex.getStackTrace() );
                     }
 
                 } else {
                     out.write(buf, 0, count);
-                    LOG.info("Ignoring Request");
+                    logger.info( "Ignoring Request. Receied wrong request text " + new String( buf ) );
                 }
             }
-        }
-        catch (IOException e) {
-            LOG.severe("Socket read failed: " + e.getMessage());
-        }
-        finally {
+        } catch (IOException e) {
+        	logger.severe("Socket read failed: " + e.getMessage());
+        } finally {
             try {
                 if (out != null) {
                     out.flush();
                     out.close();
-                    LOG.info("Flush output");
+                    logger.info("Flush output and close output stream.");
                 }
-                if (in != null)
+                if (in != null) {
                     in.close();
+                    logger.info("Close input stream.");
+                }
             } catch (IOException e) {
-                LOG.severe("Error closing in and out: " + e.getMessage());
+            	logger.severe("Error closing input stream and outputstream.\n" + e.getMessage());
             }
         }
     }
