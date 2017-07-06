@@ -88,7 +88,7 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         return this.isShutDownRequested;
     }
 
-    private synchronized void requestShutDown() {
+    private synchronized void requestShutdown() {
         this.isShutDownRequested = true;
         if( this.serverSocket != null ) {
 	        try {
@@ -192,8 +192,8 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     @Override
     public void destroy() throws Exception {
-        requestShutDown();
-        executor.shutdown();
+    	this.requestShutdown();
+        this.executor.shutdown();
     }
 
 	@Override
@@ -203,31 +203,27 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
 	@Override
 	public boolean isAprRequired() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean isCometSupported() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean isCometTimeoutSupported() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean isSendfileSupported() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public void stop() throws Exception {
-		this.isShutDownRequested = true;
+		this.requestShutdown();
 	}
 
 }
