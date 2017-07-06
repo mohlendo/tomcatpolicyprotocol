@@ -1,4 +1,4 @@
-package com.cinergix.flash;
+package flash;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -88,7 +88,7 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
         return this.isShutDownRequested;
     }
 
-    private synchronized void requestShutdown() {
+    private synchronized void requestShutDown() {
         this.isShutDownRequested = true;
         if( this.serverSocket != null ) {
 	        try {
@@ -192,7 +192,7 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
     @Override
     public void destroy() throws Exception {
-    	this.requestShutdown();
+    	this.requestShutDown();
         this.executor.shutdown();
     }
 
@@ -223,7 +223,7 @@ public class SocketPolicyProtocolHandler implements ProtocolHandler {
 
 	@Override
 	public void stop() throws Exception {
-		this.requestShutdown();
+		this.requestShutDown();
 	}
 
 }
